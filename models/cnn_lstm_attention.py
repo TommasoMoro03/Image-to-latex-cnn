@@ -32,31 +32,6 @@ class CNNEncoder(nn.Module):
         self.encoded_image_height = encoded_image_size[0]
         self.encoded_image_width = encoded_image_size[1]
 
-        # Use a pre-trained ResNet-18 as the backbone for feature extraction.
-        # ResNet is a common and effective choice.
-        # We'll adapt it for single-channel (grayscale) input and remove the classification head.
-        resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)  # Use default weights
-
-        # Modify the first convolutional layer for grayscale input (1 channel instead of 3)
-        # Standard resnet.conv1 is Conv2d(3, 64, ...)
-        self.resnet_conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        # Initialize with average of pre-trained weights to handle grayscale input
-        self.resnet_conv1.weight.data = resnet.conv1.weight.data.mean(dim=1, keepdim=True)
-
-        # Remove the classification layer and average pooling from ResNet
-        modules = list(resnet.children())[1:-2]  # Exclude conv1, avgpool, fc
-        self.resnet_features = nn.Sequential(self.resnet_conv1, *modules)
-
-        # Add a final convolutional layer to adjust output channels to encoder_dim
-        # ResNet18 outputs 512 channels before the avgpool.
-        # So, the final layer of ResNet18 (layer4) outputs 512 features.
-        # We assume encoder_dim is 512 here. If different, an additional conv layer is needed.
-        # For simplicity, if encoder_dim != 512, add a 1x1 conv to map channels.
-        if self.encoder_dim != 512:
-            self.feature_mapper = nn.Conv2d(512, self.encoder_dim, kernel_size=1)
-        else:
-            self.feature_mapper = nn.Identity()  # No op if already 512
-
         # Add 2D Positional Encoding
         # Max H/W here should be based on your *input image size* divided by CNN's total stride.
         # E.g., if input is 160x800, ResNet's effective stride is 32 (2x2x2x2 for blocks + 2 for initial conv)
